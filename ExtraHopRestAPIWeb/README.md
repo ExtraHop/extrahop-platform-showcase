@@ -1,0 +1,2 @@
+#ExtraHopRestAPIWeb
+This is an example web application project that uses the ExtraHopRestAPI project to access the ExtraHop Rest API and display a graph. This is an Eclipse Java Web Project. You can import this into your Eclipse IDE and deploy to any Java web application server that is configured. Additionally, a WAR file is located in the root directory. Using the web app should be self-explanatory. Enter your server, Rest API key, and select the metric parameters.
