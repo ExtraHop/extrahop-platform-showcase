@@ -1,0 +1,12 @@
+{
+  "name": "monitor-lb-metrics",
+  "version": "1.0.0",
+  "description": "Retrieve Load Balancer metrics and send them to your ExtraHop",
+  "main": "index.js",
+  "author": "Dan Tucholski and ExtraHop Networks",
+  "dependencies": {
+    "azure-arm-monitor": "^3.0.0",
+    "azure-arm-resource": "^3.1.1-preview",
+    "memcached": "^2.2.2"
+  }
+}

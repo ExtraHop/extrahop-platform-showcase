@@ -1,0 +1,13 @@
+{
+  "name": "monitor-sa-metrics",
+  "version": "1.0.0",
+  "description": "Retrieve Storage Account metrics and send them to your ExtraHop",
+  "main": "index.js",
+  "author": "Dan Tucholski and ExtraHop Networks",
+  "dependencies": {
+    "azure-arm-monitor": "^3.0.0",
+    "azure-arm-resource": "^3.1.1-preview",
+    "azure-arm-storage": "^5.1.1-preview",
+    "memcached": "^2.2.2"
+  }
+}

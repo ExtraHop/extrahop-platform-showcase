@@ -1,0 +1,11 @@
+{
+  "name": "monitor-activity-logs",
+  "version": "1.0.0",
+  "description": "Retrieve Activity Logs and send them to your ExtraHop",
+  "main": "index.js",
+  "author": "Dan Tucholski and ExtraHop Networks",
+  "dependencies": {
+    "azure-arm-monitor": "^3.0.0",
+    "memcached": "^2.2.2"
+  }
+}
