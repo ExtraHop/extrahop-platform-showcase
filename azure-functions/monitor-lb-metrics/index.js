@@ -1,4 +1,4 @@
-// Time-stamp: <2018-08-10 10:36:13 (dtucholski)>
+// Time-stamp: <2018-09-07 15:01:42 (dtucholski)>
 //
 // Description: Retrieve Load Balancer metrics and send them to your ExtraHop
 // Author(s): Dan Tucholski and ExtraHop Networks
@@ -14,14 +14,9 @@ const resourceManagement = require('azure-arm-resource');
 const moment = require('moment');
 const memcached = require('memcached');
 
-// Helper function to print object
-function inspectObj(obj) {
-    return util.inspect(obj, {showHidden: false, depth: null})
-}
-
 module.exports = function (context, myTimer) {
 
-    const tagName = 'extrahop-azure-bundle';
+    const tagName = 'extrahop-azure-integration';
     const resourceType = 'Microsoft.Network/loadBalancers';
     const metricList = {
         'AllocatedSnatPorts': 'total',
@@ -51,7 +46,7 @@ module.exports = function (context, myTimer) {
         let startDate = new Date(endDate.getTime() - 300000); // 5 mins * 60,000 ms
         let metricTimespan = startDate.toISOString() + "/" + endDate.toISOString();
         let metricInterval = moment.duration(1, 'minutes');
-        let metricAggregation = 'maximum, total, average';
+        let metricAggregation = 'average, total';
         let metricNames = Object.keys(metricList).join(',');
         
         // Configure metric options
@@ -66,7 +61,6 @@ module.exports = function (context, myTimer) {
         let resourceClient = new resourceManagement.ResourceManagementClient(credentials, subscriptionId);
         let resourceOptions = {
             // Only one filter at a time appears to work
-            // i.e. `tagname eq '${tagName}' and resourceType eq ${resourceType}` fails, but they work separateyly
             filter: `tagname eq '${tagName}'`
         };
 
@@ -87,7 +81,6 @@ module.exports = function (context, myTimer) {
                             
                 // Get Azure Monitoring Metrics
                 return monitorClient.metrics.list(resource.id, metricOptions).then(function getMetrics (metrics) {
-                    //context.log.verbose("Metrics: " + inspectObj(metrics));
                     lbValues[resource.id]["region"] = metrics.resourceregion;
                     // Populate metric values
                     lbValues[resource.id]["metrics"] = {};
@@ -126,17 +119,6 @@ module.exports = function (context, myTimer) {
                                 context.log.error("ExtraHop ODC set error: " + err);
                             } else {
                                 context.log.verbose("LB Metric Values Sent: " + JSON.stringify(lbResource));
-                                // TODO will be removed
-                                // test getting the value back
-                                extrahopODC.get("azure-lb-metrics-" + lbResource.name, function (err, data) {
-                                    if (err) {
-                                        context.log.error("ExtraHop ODC get error: " + err + " data: " + data);
-                                    } else {
-                                        context.log.verbose("Got the value back: " + JSON.stringify(data));
-                                    }
-                                    
-                                });
-                                // TODO will be removed
                             }
                         });
                     }

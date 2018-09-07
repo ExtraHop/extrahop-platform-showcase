@@ -1,0 +1,278 @@
+{
+    "parameters": {
+        "appName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the function app that you wish to create. It will also be used to generate names for other supporting resources."
+              }
+        },
+        "virtualNetworkName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the existing VNet that the EDA is in."
+            }
+        },
+        "gatewaySubnetPrefix": {
+            "type": "string",
+            "metadata": {
+                "description": "The prefix for the GatewaySubnet where the VirtualNetworkGateway will be deployed. This must be at least /29."
+            }
+        },
+        "vpnClientAddressPoolPrefix": {
+            "type": "string",
+            "metadata": {
+                "description": "The IP address range from which VPN clients will receive an IP address when connected. Must be a private IP range as defined by RFC1918 and also the range specified must not overlap with on-premise network."
+            }
+        },
+        "edaPrivateIpAddr": {
+            "type": "string",
+            "metadata": {
+                "description": "The private IP address for the ExtraHop EDA hosted in Azure where the function app will send metrics."
+            }
+        },
+        "edaNetworkSecurityGroup": {
+            "type": "string",
+            "metadata": {
+                "description": "The network security group (nsg) that the ExtraHop EDA hosted in Azure uses."
+            }
+        },
+        "edaODCPort": {
+            "type": "string",
+            "defaultValue": "11211",
+            "metadata": {
+                "description": "The port for ExtraHop Open Data Context (ODC). Defaults to port 11211."
+            }
+        },
+        "edaNSGSecurityRulePriority": {
+            "type": "string",
+            "defaultValue": "1121",
+            "metadata": {
+                "description": "The priority for the new security rule added to the network security group (nsg) that the ExtraHop EDA hosted in Azure uses. Cannot have the same priority as an existing inbound rule on that nsg."
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "The desired location for all resources. Defaults to location of specified resource group."
+            }
+        },
+        "insightsLocation": {
+            "type": "string",
+            "defaultValue": "West US 2",
+            "metadata": {
+              "description": "The desired location for the app insights resource. Defaults to West US 2, see Azure Documentation for list of available app insights locations."
+            }
+          },
+        "subscriptionId": {
+            "type": "string",
+            "defaultValue": "[subscription().subscriptionId]",
+            "metadata": {
+                "description": "The subscription id used to create and run all resources. Defaults to the primary subscription id, if available."
+            }
+        }
+    },
+    "variables": {
+        "storageName": "[toLower(concat('extrahopazintegr1',substring(uniquestring(parameters('subscriptionId'),parameters('appName')),0,5)))]",
+        "hostingPlanName": "[concat(parameters('appName'), '-app-service-plan')]",
+        "repoURL": "https://github.com/ExtraHop/extrahop-platform-showcase.git",
+        "repoBranch": "azure-integration",
+        "gatewayName": "[concat(parameters('virtualNetworkName'), '-vnet-gateway')]",
+        "gatewayPublicIPName": "[concat(variables('gatewayName'), '-public-ip')]"
+    },
+    "resources": [
+        {
+            "name": "[parameters('appName')]",
+            "type": "Microsoft.Web/sites",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+                "[resourceId('Microsoft.Insights/components/', parameters('appName'))]"
+            ],
+            "properties": {
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "AzureWebJobsDashboard",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',variables('storageName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageName')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~1"
+                        },
+                        {
+                            "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                            "value": "6.5.0"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appName')), '2015-05-01').InstrumentationKey]"
+                        },
+                        {
+                            "name": "AZURE_SUBSCRIPTION_ID",
+                            "value": "[parameters('subscriptionId')]"
+                        },
+                        {
+                            "name": "EXTRAHOP_IP",
+                            "value": "[parameters('edaPrivateIpAddr')]"
+                        },
+                        {
+                            "name": "EXTRAHOP_PORT",
+                            "value": "[parameters('edaODCPort')]"
+                        },
+                        {
+                            "name": "PROJECT",
+                            "value": "azure-functions"
+                        }
+                    ],
+                    "alwaysOn": true
+                },
+                "name": "[parameters('appName')]",
+                "clientAffinityEnabled": false,
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
+                "hostingEnvironment": ""
+            },
+            "apiVersion": "2016-03-01",
+            "location": "[parameters('location')]",
+            "kind": "functionapp",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "resources": [
+              {
+                "apiVersion": "2015-08-01",
+                "name": "web",
+                "type": "sourcecontrols",
+                "dependsOn": [
+                  "[resourceId('Microsoft.Web/sites', parameters('appName'))]"
+                ],
+                "properties": {
+                  "RepoUrl": "[variables('repoURL')]",
+                  "branch": "[variables('repoBranch')]",
+                  "IsManualIntegration": true
+                }
+              }
+            ]
+        },
+        {
+            "apiVersion": "2016-09-01",
+            "name": "[variables('hostingPlanName')]",
+            "type": "Microsoft.Web/serverfarms",
+            "location": "[parameters('location')]",
+            "properties": {
+                "name": "[variables('hostingPlanName')]",
+                "workerSizeId": "0",
+                "reserved": false,
+                "numberOfWorkers": "1",
+                "hostingEnvironment": ""
+            },
+            "sku": {
+                "Tier": "Standard",
+                "Name": "S1"
+            }
+        },
+        {
+            "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[variables('storageName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "accountType": "Standard_LRS"
+            }
+        },
+        {
+            "apiVersion": "2015-05-01",
+            "name": "[parameters('appName')]",
+            "type": "microsoft.insights/components",
+            "location": "[parameters('insightsLocation')]",
+            "tags": {
+                "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('appName'))]": "Resource"
+            },
+            "properties": {
+                "ApplicationId": "[parameters('appName')]",
+                "Request_Source": "IbizaWebAppExtensionCreate"
+            }
+        },
+        {
+            "apiVersion": "2018-04-01",
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "name": "[concat(parameters('virtualNetworkName'), '/GatewaySubnet')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressPrefix": "[parameters('gatewaySubnetPrefix')]"
+            }
+        },
+        {
+            "apiVersion": "2018-04-01",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('gatewayPublicIPName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+              "publicIPAllocationMethod": "Dynamic"
+            }
+        },
+        {
+            "apiVersion": "2018-04-01",
+            "type": "Microsoft.Network/virtualNetworkGateways",
+            "name": "[variables('gatewayName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+              "[resourceId('Microsoft.Network/publicIPAddresses/', variables('gatewayPublicIPName'))]",
+              "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'GatewaySubnet')]"
+            ],
+            "properties": {
+              "ipConfigurations": [
+                {
+                  "properties": {
+                    "privateIPAllocationMethod": "Dynamic",
+                    "subnet": {
+                      "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), 'GatewaySubnet')]"
+                    },
+                    "publicIPAddress": {
+                      "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('gatewayPublicIPName'))]"
+                    }
+                  },
+                  "name": "vnetGatewayConfig"
+                }
+              ],
+              "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+              },
+              "gatewayType": "Vpn",
+              "vpnType": "RouteBased",
+              "enableBgp": "false",
+              "vpnClientConfiguration": {
+                "vpnClientAddressPool": {
+                  "addressPrefixes": [
+                    "[parameters('vpnClientAddressPoolPrefix')]"
+                  ]
+                }
+              }
+            }
+        },
+        {
+            "name": "[concat(parameters('edaNetworkSecurityGroup'), '/ExtraHopODC')]", 
+            "type": "Microsoft.Network/networkSecurityGroups/securityRules",
+            "apiVersion": "2017-10-01",
+            "location": "[resourceGroup().location]",
+                "properties": {
+                    "description": "Allow Open Data Context TCP traffic to the EDA",
+                    "sourceAddressPrefix": "[parameters('vpnClientAddressPoolPrefix')]",
+                    "sourcePortRange": "*",
+                    "direction": "Inbound",
+                    "access": "Allow",
+                    "priority": "[parameters('edaNSGSecurityRulePriority')]",
+                    "protocol": "Tcp",
+                    "destinationAddressPrefix": "*",
+                    "destinationPortRange": "[parameters('edaODCPort')]"
+            }
+        }
+    ],
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0"
+}

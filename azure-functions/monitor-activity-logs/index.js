@@ -1,4 +1,4 @@
-// Time-stamp: <2018-08-22 11:09:42 (dtucholski)>
+// Time-stamp: <2018-09-07 15:19:32 (dtucholski)>
 //
 // Description: Retrieve Activity Logs and send them to your ExtraHop
 // Author(s): Dan Tucholski and ExtraHop Networks
@@ -10,14 +10,7 @@
 const util = require('util');
 const msRestAzure = require('ms-rest-azure');
 const monitorManagement = require('azure-arm-monitor');
-//const resourceManagement = require('azure-arm-resource');
-//const moment = require('moment');
 const memcached = require('memcached');
-
-// Helper function to print object
-function inspectObj(obj) {
-    return util.inspect(obj, {showHidden: false, depth: null})
-}
 
 module.exports = function (context, myTimer) {
 
@@ -38,14 +31,10 @@ module.exports = function (context, myTimer) {
         let endDate = new Date();
         let startDate = new Date(endDate.getTime() - 60000); // 1 minute = 60,000 ms
         let logFilter = "eventTimestamp ge '" + startDate.toISOString() + "' and eventTimestamp le '" +  endDate.toISOString() + "'";
-        
-        // TODO remove (for testing)
-        //logFilter = "eventTimestamp ge '2018-08-10T22:51:10.792Z' and eventTimestamp le '2018-08-14T18:51:10.792Z'";
 
         // Configure metric options
         let activityLogOptions = {
-            filter: logFilter,
-            //select: "resourceId"
+            filter: logFilter
         };
 
         // Get Azure Activity Logs
@@ -87,6 +76,10 @@ module.exports = function (context, myTimer) {
                 if (log.hasOwnProperty('tenantId')) {
                     logRecord['tenantId'] = log.tenantId;
                 }
+                // Store entire properties object
+                if (log.hasOwnProperty('properties')) {
+                    logRecord['properties'] = log.properties;
+                }
 
                 // Category specific optional record fields
                 switch(logRecord.category){
@@ -109,7 +102,6 @@ module.exports = function (context, myTimer) {
                                 logRecord['callerIp'] = log.httpRequest.clientIpAddress;
                             }
                         }
-                        // Handle properties
                         if (log.hasOwnProperty('properties')) {
                             // Only store status message for errors
                             if (log.properties.hasOwnProperty('statusMessage') && log.properties.statusMessage.includes('error')) {
@@ -141,7 +133,6 @@ module.exports = function (context, myTimer) {
                         }
                         break;
                     case 'ServiceHealth':
-                        // Handle properties
                         if (log.hasOwnProperty('properties')) {
                             if (log.properties.hasOwnProperty('title')) {
                                 logRecord['eventName'] = log.properties.title;
@@ -194,13 +185,12 @@ module.exports = function (context, myTimer) {
                             if (log.properties.hasOwnProperty('userName')) {
                                 logRecord['caller'] = log.properties.userName;
                             }
-                            // passing up info in properties since I can't enumerate all possible properties from 1 example
                         }
                         break;
                     case 'Recommendation':
                         if (log.hasOwnProperty('properties')) {
                             if (log.properties.hasOwnProperty('recommendationCategory')) {
-                                logRecord['impactedService'] = log.properties.recommendationCategory;
+                                logRecord['recommendationCategory'] = log.properties.recommendationCategory;
                             }
                             if (log.properties.hasOwnProperty('recommendationImpact')) {
                                 logRecord['severity'] = log.properties.recommendationImpact;
@@ -214,7 +204,6 @@ module.exports = function (context, myTimer) {
                 activityLogRecords[log.eventDataId] = logRecord;
             });
 
-            //context.log.verbose("Records: " + inspectObj(activityLogRecords));
             context.log.info("Found " + Object.keys(activityLogRecords).length + " activity log(s)");
             // After all Activity Logs have been parsed send records to ExtraHop over ODC
             if (Object.keys(activityLogRecords).length) {
@@ -231,17 +220,6 @@ module.exports = function (context, myTimer) {
                                 context.log.error("ExtraHop ODC set error: " + err);
                             } else {
                                 context.log.verbose("Activity Log Record Sent: " + JSON.stringify(logRecord));
-                                // TODO will be removed
-                                // test getting the value back
-                                extrahopODC.get("azure-activity-log-" + logId, function (err, data) {
-                                    if (err) {
-                                        context.log.error("ExtraHop ODC get error: " + err + " data: " + data);
-                                    } else {
-                                        context.log.verbose("Got the value back: " + JSON.stringify(data));
-                                    }
-                                    
-                                });
-                                // TODO will be removed
                             }
                         });
                     }

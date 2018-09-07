@@ -1,1 +1,13 @@
-{"tracing":{"consoleLevel":"verbose"},"logger":{"categoryFilter":{"defaultLevel":"Information","categoryLevels":{"Function":"Debug"}}}}
+{
+    "tracing": {
+        "consoleLevel": "info"
+    },
+    "logger": {
+        "categoryFilter": {
+            "defaultLevel": "Information",
+            "categoryLevels": {
+                "Function": "Information"
+            }
+        }
+    }
+}

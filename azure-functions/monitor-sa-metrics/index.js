@@ -1,4 +1,4 @@
-// Time-stamp: <2018-08-24 16:32:15 (dtucholski)>
+// Time-stamp: <2018-09-07 14:43:52 (dtucholski)>
 //
 // Description: Retrieve Storage Account metrics and send them to your ExtraHop
 // Author(s): Dan Tucholski and ExtraHop Networks
@@ -15,13 +15,8 @@ const storageManagement = require('azure-arm-storage');
 const moment = require('moment');
 const memcached = require('memcached');
 
-// Helper function to print object
-function inspectObj(obj) {
-    return util.inspect(obj, {showHidden: false, depth: null})
-}
-// Helper function to get resource group from resource id
+// Helper function to parse the resource group from a resource id
 function parseResourceGroup(resourceId) {
-    // TODO add error checking incase the lookups fail
     let prefix = 'resourceGroups/';
     let prefixIndex = resourceId.indexOf(prefix) + prefix.length;
     let suffix = '/providers';
@@ -31,7 +26,7 @@ function parseResourceGroup(resourceId) {
 
 module.exports = function (context, myTimer) {
 
-    const tagName = 'extrahop-azure-bundle';
+    const tagName = 'extrahop-azure-integration';
     const resourceType = 'Microsoft.Storage/storageAccounts';
     const metricList = {
         'Availability': 'average',
@@ -79,7 +74,6 @@ module.exports = function (context, myTimer) {
         let resourceClient = new resourceManagement.ResourceManagementClient(credentials, subscriptionId);
         let resourceOptions = {
             // Only one filter at a time appears to work
-            // i.e. `tagname eq '${tagName}' and resourceType eq ${resourceType}` fails, but they work separateyly
             filter: `tagname eq '${tagName}'`
         };
 
@@ -100,7 +94,6 @@ module.exports = function (context, myTimer) {
                             
                 // Get Azure Monitoring Metrics
                 return monitorClient.metrics.list(resource.id, metricOptions).then(function getSAMetrics (metrics) {
-                    //context.log.verbose("Metrics: " + inspectObj(metrics));
                     saValues[resource.id]['region'] = metrics.resourceregion;
                     // Populate metric values
                     saValues[resource.id]["metrics"] = {};
@@ -121,7 +114,7 @@ module.exports = function (context, myTimer) {
                                     }
                                     // Use the second most recent item since the most recent seems to usually be empty
                                     saValues[resource.id]["metrics"][metricName][apiName] = metricData[metricData.length - 2][aggregationType];
-                                    // Keep track of total
+                                    // Keep track of totals
                                     saValues[resource.id]["metrics"][metricName]["total"] += metricData[metricData.length - 2][aggregationType];
                                 }
                             }
@@ -138,7 +131,6 @@ module.exports = function (context, myTimer) {
 
             // After all SA resource metrics have been populated now pull by Service metrics
             Promise.all(saPromises).then(function getServiceMetrics () {
-                //context.log.verbose(inspectObj(saPromises));
                 // Create array to hold an array of 4 promises for each SA
                 let saServicePromises = [];
                 for (let resourceId in saValues) {
@@ -173,7 +165,6 @@ module.exports = function (context, myTimer) {
                                 let saServiceValues = saValues[resourceId]["services"][serviceEndpoint.service];
                                 
                                 return monitorClient.metrics.list(serviceId, metricOptions).then(function getSpecificServiceMetrics (serviceMetrics) { 
-                                    //context.log.verbose(serviceEndpoint + " Metrics: " + inspectObj(serviceMetrics));
                                     // Populate service metric values
                                     saServiceValues["metrics"] = {};
                                     serviceMetrics.value.forEach(metric => {
@@ -193,7 +184,7 @@ module.exports = function (context, myTimer) {
                                                     }
                                                     // Use the second most recent item since the most recent seems to usually be empty
                                                     saServiceValues["metrics"][metricName][apiName] = metricData[metricData.length - 2][aggregationType];
-                                                    // Keep track of total
+                                                    // Keep track of totals
                                                     saServiceValues["metrics"][metricName]["total"] += metricData[metricData.length - 2][aggregationType];
                                                 }
                                             }
@@ -203,10 +194,8 @@ module.exports = function (context, myTimer) {
 
                                     // Pull additional container information for the blob service 
                                     if (serviceEndpoint.service === 'blob') {
-                                        //context.log.verbose(resourceId + " " + saValues[resourceId].name);
                                         // Get blob container details
                                         return storageClient.blobContainers.list(parseResourceGroup(resourceId), saValues[resourceId].name).then(function getBlobContainers(containers) {
-                                            //context.log.verbose(resourceId + " Blob Containers: " + inspectObj(containers));
                                             saServiceValues["containers"] = [];
                                             containers.value.forEach(container => {
                                                 let containerDetails = {
@@ -238,7 +227,6 @@ module.exports = function (context, myTimer) {
                     // Configure ExtraHop ODC 
                     let memcacheServer = extrahopIp + ":" + extrahopPort;
                     let extrahopODC = new memcached(memcacheServer);
-                    //context.log.verbose(inspectObj(saValues));
 
                     // Go through and send each metric record to ExtraHop
                     for (let saResourceId in saValues) {
@@ -250,17 +238,6 @@ module.exports = function (context, myTimer) {
                                     context.log.error("ExtraHop ODC set error: " + err);
                                 } else {
                                     context.log.verbose("SA Metric Values Sent: " + JSON.stringify(saResource));
-                                    // TODO will be removed
-                                    // test getting the value back
-                                    extrahopODC.get("azure-sa-metrics-" + saResource.name, function (err, data) {
-                                        if (err) {
-                                            context.log.error("ExtraHop ODC get error: " + err + " data: " + data);
-                                        } else {
-                                            context.log.verbose("Got the value back: " + JSON.stringify(data));
-                                        }
-                                        
-                                    });
-                                    // TODO will be removed
                                 }
                             });
                         }
@@ -269,9 +246,6 @@ module.exports = function (context, myTimer) {
                     // sendExtraHopODC error
                     context.log.error("sendExtraHopODC " + err)
                 );
-
-                        
-
 
             }).catch(err =>
                 // getServiceMetrics error

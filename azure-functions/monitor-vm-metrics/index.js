@@ -1,4 +1,4 @@
-// Time-stamp: <2018-08-08 15:42:15 (dtucholski)>
+// Time-stamp: <2018-09-07 14:37:12 (dtucholski)>
 //
 // Description: Retrieve Virtual Machine metrics and send them to your ExtraHop
 // Author(s): Dan Tucholski and ExtraHop Networks
@@ -14,17 +14,12 @@ const resourceManagement = require('azure-arm-resource');
 const moment = require('moment');
 const memcached = require('memcached');
 
-// Helper function to print object
-function inspectObj(obj) {
-    return util.inspect(obj, {showHidden: false, depth: null})
-}
-
 module.exports = function (context, myTimer) {
 
-    const tagName = 'extrahop-azure-bundle';
+    const tagName = 'extrahop-azure-integration';
     const resourceType = 'Microsoft.Compute/virtualMachines';
     const metricList = {
-        'CPU Credits Consumed': 'average', // TODO should be average?
+        'CPU Credits Consumed': 'average',
         'CPU Credits Remaining': 'average',
         'Disk Read Bytes': 'total',
         'Disk Write Bytes': 'total',
@@ -67,7 +62,6 @@ module.exports = function (context, myTimer) {
         let resourceClient = new resourceManagement.ResourceManagementClient(credentials, subscriptionId);
         let resourceOptions = {
             // Only one filter at a time appears to work
-            // i.e. `tagname eq '${tagName}' and resourceType eq ${resourceType}` fails, but they work separateyly
             filter: `tagname eq '${tagName}'`
         };
         let resourceGetByIdApiVersion = "2018-06-01";
@@ -102,7 +96,6 @@ module.exports = function (context, myTimer) {
                             
                             // Get Azure Monitoring Metrics
                             return monitorClient.metrics.list(resource.id, metricOptions).then(function getMetrics (metrics) {
-                                //context.log.verbose("Metrics: " + inspectObj(metrics));
                                 vmValues[resource.id]['region'] = metrics.resourceregion;
                                 // Populate metric values
                                 vmValues[resource.id]["metrics"] = {};
@@ -153,17 +146,6 @@ module.exports = function (context, myTimer) {
                                 context.log.error("ExtraHop ODC set error: " + err);
                             } else {
                                 context.log.verbose("VM Metric Values Sent: " + JSON.stringify(vmResource));
-                                // TODO will be removed
-                                // test getting the value back
-                                extrahopODC.get("azure-vm-metrics-" + vmResource.HWAddr, function (err, data) {
-                                    if (err) {
-                                        context.log.error("ExtraHop ODC get error: " + err + " data: " + data);
-                                    } else {
-                                        context.log.verbose("Got the value back: " + JSON.stringify(data));
-                                    }
-                                    
-                                });
-                                // TODO will be removed
                             }
                         });
                     }
