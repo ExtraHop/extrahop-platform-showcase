@@ -1,4 +1,4 @@
-// Time-stamp: <2018-09-07 15:19:32 (dtucholski)>
+// Time-stamp: <2018-09-18 10:52:32 (dtucholski)>
 //
 // Description: Retrieve Activity Logs and send them to your ExtraHop
 // Author(s): Dan Tucholski and ExtraHop Networks
@@ -27,9 +27,10 @@ module.exports = function (context, myTimer) {
         // Setup azure monitor client
         let monitorClient = new monitorManagement(credentials, subscriptionId);
         
-        // Pull log for only the last 1 minute
-        let endDate = new Date();
-        let startDate = new Date(endDate.getTime() - 60000); // 1 minute = 60,000 ms
+        // Pull logs for 1 minute from 5 minutes ago
+        let now = new Date().getTime();
+        let startDate = new Date(Math.floor((now - 300000) / 60000) * 60000); // 1 minute = 60,000 ms
+        let endDate = new Date(startDate.getTime() + 60000); // 1 minute = 60,000 ms
         let logFilter = "eventTimestamp ge '" + startDate.toISOString() + "' and eventTimestamp le '" +  endDate.toISOString() + "'";
 
         // Configure metric options
@@ -176,11 +177,11 @@ module.exports = function (context, myTimer) {
                         break;
                     case 'Security':
                         if (log.hasOwnProperty('properties')) {
-                            if (log.properties.hasOwnProperty('Severity')) {
-                                logRecord['severity'] = log.properties.Severity;
+                            if (log.properties.hasOwnProperty('severity')) {
+                                logRecord['severity'] = log.properties.severity;
                             }
-                            if (log.properties.hasOwnProperty('ActionTaken')) {
-                                logRecord['actionTaken'] = log.properties.ActionTaken;
+                            if (log.properties.hasOwnProperty('actionTaken')) {
+                                logRecord['actionTaken'] = log.properties.actionTaken;
                             }
                             if (log.properties.hasOwnProperty('userName')) {
                                 logRecord['caller'] = log.properties.userName;

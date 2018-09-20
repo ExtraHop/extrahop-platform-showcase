@@ -43,8 +43,9 @@ module.exports = function (context, myTimer) {
         let monitorClient = new monitorManagement(credentials, subscriptionId);
         
         // Pull 1 minute metrics for only the last 5 minutes
-        let endDate = new Date();
-        let startDate = new Date(endDate.getTime() - 300000); // 5 mins * 60,000 ms
+        let now = new Date().getTime();
+        let endDate = new Date(Math.floor(now / 60000) * 60000); // round to last whole minute
+        let startDate = new Date(endDate.getTime() - 300000); // 5 minutes = 300,000 ms
         let metricTimespan = startDate.toISOString() + "/" + endDate.toISOString();
         let metricInterval = moment.duration(1, 'minutes');
         let metricAggregation = 'average, maximum, total';
