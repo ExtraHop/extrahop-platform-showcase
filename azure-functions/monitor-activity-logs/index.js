@@ -1,13 +1,10 @@
-// Time-stamp: <2018-09-18 10:52:32 (dtucholski)>
-//
 // Description: Retrieve Activity Logs and send them to your ExtraHop
-// Author(s): Dan Tucholski and ExtraHop Networks
+// Event(s): Timer trigger - every minute
 
 ///////////////////////////////////////////////////////////////////////////////
 // This file is part of an ExtraHop Supported Bundle.  Make NO MODIFICATIONS //
 ///////////////////////////////////////////////////////////////////////////////
 
-const util = require('util');
 const msRestAzure = require('ms-rest-azure');
 const monitorManagement = require('azure-arm-monitor');
 const memcached = require('memcached');

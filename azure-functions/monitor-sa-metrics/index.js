@@ -1,13 +1,10 @@
-// Time-stamp: <2018-09-07 14:43:52 (dtucholski)>
-//
 // Description: Retrieve Storage Account metrics and send them to your ExtraHop
-// Author(s): Dan Tucholski and ExtraHop Networks
+// Event(s): Timer trigger - every minute
 
 ///////////////////////////////////////////////////////////////////////////////
 // This file is part of an ExtraHop Supported Bundle.  Make NO MODIFICATIONS //
 ///////////////////////////////////////////////////////////////////////////////
 
-const util = require('util');
 const msRestAzure = require('ms-rest-azure');
 const monitorManagement = require('azure-arm-monitor');
 const resourceManagement = require('azure-arm-resource');
@@ -113,7 +110,7 @@ module.exports = function (context, myTimer) {
                                     if (!saValues[resource.id]["metrics"].hasOwnProperty(metricName)) {
                                         saValues[resource.id]["metrics"][metricName] = {total: 0};
                                     }
-                                    // Use the second most recent item since the most recent seems to usually be empty
+                                    // Use the metric values from 2 minutes ago to increase reliability of metric data
                                     saValues[resource.id]["metrics"][metricName][apiName] = metricData[metricData.length - 2][aggregationType];
                                     // Keep track of totals
                                     saValues[resource.id]["metrics"][metricName]["total"] += metricData[metricData.length - 2][aggregationType];

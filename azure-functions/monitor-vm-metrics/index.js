@@ -1,13 +1,10 @@
-// Time-stamp: <2018-09-07 14:37:12 (dtucholski)>
-//
 // Description: Retrieve Virtual Machine metrics and send them to your ExtraHop
-// Author(s): Dan Tucholski and ExtraHop Networks
+// Event(s): Timer trigger - every minute
 
 ///////////////////////////////////////////////////////////////////////////////
 // This file is part of an ExtraHop Supported Bundle.  Make NO MODIFICATIONS //
 ///////////////////////////////////////////////////////////////////////////////
 
-const util = require('util');
 const msRestAzure = require('ms-rest-azure');
 const monitorManagement = require('azure-arm-monitor');
 const resourceManagement = require('azure-arm-resource');
@@ -108,7 +105,7 @@ module.exports = function (context, myTimer) {
                                         let aggregationType = metricList[metricName];
 
                                         if (metricData[metricData.length - 2] && metricData[metricData.length - 2].hasOwnProperty(aggregationType)) {
-                                            // Use the second most recent item since the most recent seems to usually be empty
+                                            // Use the metric values from 2 minutes ago to increase reliability of metric data
                                             vmValues[resource.id]["metrics"][metricName] = metricData[metricData.length - 2][aggregationType];
                                         } 
                                     }
