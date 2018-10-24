@@ -1,2 +1,3 @@
 #ExtraHopRestAPI
-This is an example project for using Java to access the ExtraHop Rest API. This is an Eclipse Java project with Maven. Maven will handle the dependencies for you. The key class is RestClient. This class has methods that are mapped to the ExtraHop Rest URIs. Javadoc is provided.
+
+*This project is deprecated and no longer maintained.  Please see the [ExtraHop Rest API|https://docs.extrahop.com/current/rest-api-guide/]*
